@@ -33,9 +33,8 @@ void setupHandler() {
 
 void loopHandler() {
 	if (millis() - lastPublish >= PUB_INTERVAL * 1000UL) {
-		float t = bme.temp();
-		float h = bme.hum();
-		float p = bme.press(1); // 1 == hPa
+		float t, h, p;
+		bme.read(p, t, h, true, 1); // true for metri, 1 for hPa
 
 		if (!isnan(t) && Homie.setNodeProperty(temperatureNode, "degrees", String(t), true)) {
 			lastPublish = millis();
