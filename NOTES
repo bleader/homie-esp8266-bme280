@@ -1,0 +1,2 @@
+- uses https://github.com/finitespace/BME280 @a1bd12b because platformio one isn't working
+- adafruit bme280 lib is hardcoded on address 0x60, my bme280 is 0x76
