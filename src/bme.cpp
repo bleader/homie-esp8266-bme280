@@ -27,24 +27,31 @@ void setupHandler() {
 	Homie.setNodeProperty(humidityNode, "unit", "%", true);
 	Homie.setNodeProperty(pressureNode, "unit", "hPa", true);
 
-	// 4 and 5 are the gpio numbers
+	/* 4 and 5 are the gpio numbers */
 	if (!bme.begin(4,5))
-		Serial.println("Could not find a valid BME280 sensor, check wiring!");
+		Serial.println("Could not find BME280 sensor, check wiring!");
 }
 
 void loopHandler() {
 	if (millis() - lastPublish >= PUB_INTERVAL * 1000UL) {
 		float t, h, p;
-		bme.read(p, t, h, true, 1); // true for metri, 1 for hPa
+
+		bme.read(p, t, h, true, 1); /* true for metric, 1 for hPa */
 		p += PRESSURE_OFFSET;
 
-		if (!isnan(t) && Homie.setNodeProperty(temperatureNode, "degrees", String(t), true)) {
+		if (!isnan(t) &&
+		    Homie.setNodeProperty(temperatureNode, "degrees",
+					  String(t), true)) {
 			lastPublish = millis();
 		}
-		if (!isnan(h) && Homie.setNodeProperty(humidityNode, "relative", String(h), true)) {
+		if (!isnan(h) &&
+		    Homie.setNodeProperty(humidityNode, "relative",
+					  String(h), true)) {
 			lastPublish = millis();
 		}
-		if (!isnan(p) && Homie.setNodeProperty(pressureNode, "pressure", String(p), true)) {
+		if (!isnan(p) &&
+		    Homie.setNodeProperty(pressureNode, "pressure",
+					  String(p), true)) {
 			lastPublish = millis();
 		}
 	}
