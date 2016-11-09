@@ -4,7 +4,7 @@
 #include <BME280I2C.h>
 
 #define FW_NAME		"raton-bme"
-#define FW_VERSION	"0.0.1"
+#define FW_VERSION	"0.0.2"
 
 /* Magic sequence for Autodetectable Binary Upload */
 const char *__FLAGGED_FW_NAME = "\xbf\x84\xe4\x13\x54" FW_NAME "\x93\x44\x6b\xa7\x75";
