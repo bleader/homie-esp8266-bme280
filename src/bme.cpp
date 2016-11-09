@@ -18,6 +18,7 @@ HomieNode humidityNode("humidity", "humidity");
 HomieNode pressureNode("pressure", "pressure");
 
 BME280I2C bme;
+#define PRESSURE_OFFSET 16
 
 unsigned long lastPublish = 0;
 
@@ -35,6 +36,7 @@ void loopHandler() {
 	if (millis() - lastPublish >= PUB_INTERVAL * 1000UL) {
 		float t, h, p;
 		bme.read(p, t, h, true, 1); // true for metri, 1 for hPa
+		p += PRESSURE_OFFSET;
 
 		if (!isnan(t) && Homie.setNodeProperty(temperatureNode, "degrees", String(t), true)) {
 			lastPublish = millis();
