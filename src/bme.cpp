@@ -23,9 +23,9 @@ BME280I2C bme;
 unsigned long lastPublish = 0;
 
 void setupHandler() {
-	Homie.setNodeProperty(temperatureNode, "unit", "c", true);
-	Homie.setNodeProperty(humidityNode, "unit", "%", true);
-	Homie.setNodeProperty(pressureNode, "unit", "hPa", true);
+	temperatureNode.setProperty("unit").send("c");
+	humidityNode.setProperty("unit").send("%");
+	pressureNode.setProperty("unit").send("hPa");
 
 	/* 4 and 5 are the gpio numbers */
 	if (!bme.begin(4,5))
@@ -40,18 +40,15 @@ void loopHandler() {
 		p += PRESSURE_OFFSET;
 
 		if (!isnan(t) &&
-		    Homie.setNodeProperty(temperatureNode, "degrees",
-					  String(t), true)) {
+		    temperatureNode.setProperty("degrees").send(String(t))) {
 			lastPublish = millis();
 		}
 		if (!isnan(h) &&
-		    Homie.setNodeProperty(humidityNode, "relative",
-					  String(h), true)) {
+		    humidityNode.setProperty("relative").send(String(h))) {
 			lastPublish = millis();
 		}
 		if (!isnan(p) &&
-		    Homie.setNodeProperty(pressureNode, "pressure",
-					  String(p), true)) {
+		    pressureNode.setProperty("pressure").send(String(p))) {
 			lastPublish = millis();
 		}
 	}
@@ -60,16 +57,12 @@ void loopHandler() {
 void setup() {
 	Serial.begin(115200);
 
-	Homie.setFirmware(FW_NAME, FW_VERSION);
-
-	Homie.registerNode(temperatureNode);
-	Homie.registerNode(humidityNode);
-	Homie.registerNode(pressureNode);
+	Homie_setFirmware(FW_NAME, FW_VERSION);
 
 	Homie.setSetupFunction(setupHandler);
 	Homie.setLoopFunction(loopHandler);
 
-	Homie.enableBuiltInLedIndicator(false);  
+	Homie.disableLedFeedback(); 
 	Homie.setup();
 }
 
