@@ -14,5 +14,6 @@ convention for IoT.
 
 - Pressure is adjusted to match the offset I observed compared to weather
   station nearby
-- This one is meant for a grid powered sensor, so no sleep or power saving
+- Battery/grid powered is now an option
+- For battery operation, disabling debug will save a tiny bit of battery life
 

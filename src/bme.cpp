@@ -7,8 +7,18 @@
  * this saves an average of 80ms on a roughly 4s uptime between deep sleeps */
 #define DEBUG_MODE 1
 
-#define FW_NAME		"raton-bme-deepsleep"
-#define FW_VERSION	"0.0.4"
+/* uncomment to activate battery operated mode, a.k.a deep sleep mode */
+#define BATTERY_MODE 1
+
+#ifdef BATTERY_MODE
+#define FW_NAME "raton-bme-battery"
+#define DEEPSLEEP_TIME (10 * 60 * 1000000) /* 10 minutes */
+#else
+#define FW_NAME "raton-bme"
+#define PUB_INTERVAL 60
+#endif
+
+#define FW_VERSION	"0.0.5"
 
 /* Magic sequence for Autodetectable Binary Upload */
 const char *__FLAGGED_FW_NAME = "\xbf\x84\xe4\x13\x54" FW_NAME "\x93\x44\x6b\xa7\x75";
@@ -25,8 +35,7 @@ BME280I2C bme;
 #define PRESSURE_OFFSET 16
 
 ADC_MODE(ADC_VCC);
-bool published = false;
-uint32_t start;
+unsigned long published = 0;
 
 void setupHandler() {
 	temperatureNode.setProperty("unit").send("c");
@@ -40,8 +49,13 @@ void setupHandler() {
 }
 
 void loopHandler() {
+#ifdef BATTERY_MODE
 	/* make sure not to send anything until mqtt is connected */
-	if (Homie.isConnected() && !published) {
+	if (Homie.isConnected() && !published)
+#else
+	if (millis() - published >= PUB_INTERVAL * 1000UL)
+#endif
+	{
 		float t, h, p, v;
 
 		bme.read(p, t, h, true, 1); /* true for metric, 1 for hPa */
@@ -49,37 +63,41 @@ void loopHandler() {
 		v = ESP.getVcc() / 1000.0f;
 
 #ifdef DEBUG_MODE
-		Serial << "t = " << t << "°C p = " << p << "hPa / h = " << h << " % /  v = " << v  << "V" << endl;
+		Serial << "t = " << t << "°C p = " << p << "hPa / h = " << h
+			<< " % /  v = " << v  << "V" << endl;
 #endif
-		if (!isnan(t))
-		    temperatureNode.setProperty("degrees").send(String(t));
-		if (!isnan(h))
-		    humidityNode.setProperty("relative").send(String(h));
-		if (!isnan(p))
-		    pressureNode.setProperty("pressure").send(String(p));
-		if (!isnan(v))
+
+		/* only try to publish if everything seems right */
+		if (!isnan(t) && !isnan(h) && !isnan(p) && !isnan(v)) {
+			temperatureNode.setProperty("degrees").send(String(t));
+			humidityNode.setProperty("relative").send(String(h));
+			pressureNode.setProperty("pressure").send(String(p));
 			batteryNode.setProperty("battery").send(String(v));
-		published = true;
-		Homie.prepareToSleep();
+
+#ifdef BATTERY_MODE
+			published = 1;
+			Homie.prepareToSleep();
+#else
+			published = millis();
+#endif
+		}
 	}
 }
 
+#ifdef BATTERY_MODE
 void onHomieEvent(const HomieEvent& event) {
 	switch(event.type) {
 		case HomieEventType::READY_TO_SLEEP:
 #ifdef DEBUG_MODE
 			Serial << "Ready to sleep" << endl;
 #endif
-			Serial << millis() - start << endl;
-			ESP.deepSleep(10 * 1000000); /* 10min */
+			ESP.deepSleep(DEEPSLEEP_TIME);
 			break;
  	}
- }
+}
+#endif
 
 void setup() {
-	start = millis();
-	published = false;
-
 #ifdef DEBUG_MODE
 	Serial.begin(115200);
 	Serial.println();
@@ -92,9 +110,12 @@ void setup() {
 
 	Homie.setSetupFunction(setupHandler);
 	Homie.setLoopFunction(loopHandler);
-
 	Homie.disableLedFeedback(); 
+
+#ifdef BATTERY_MODE
 	Homie.onEvent(onHomieEvent);
+#endif
+
 	Homie.setup();
 }
 
