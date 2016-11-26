@@ -18,7 +18,7 @@
 #define PUB_INTERVAL 60
 #endif
 
-#define FW_VERSION	"0.1.0"
+#define FW_VERSION	"0.1.1"
 
 /* Magic sequence for Autodetectable Binary Upload */
 const char *__FLAGGED_FW_NAME = "\xbf\x84\xe4\x13\x54" FW_NAME "\x93\x44\x6b\xa7\x75";
@@ -32,10 +32,22 @@ HomieNode pressureNode("pressure", "pressure");
 HomieNode batteryNode("battery", "battery");
 
 BME280I2C bme;
+
+/* checks and adjustements */
 #define PRESSURE_OFFSET 16
+#define TEMP_MIN	-20
+#define TEMP_MAX	45
+#define HUM_MIN		10
+#define HUM_MAX		100
+#define PRESS_MIN	940
+#define PRESS_MAX	1060
 
 ADC_MODE(ADC_VCC);
 unsigned long published = 0;
+
+#ifdef DEBUG_MODE
+uint32_t start = 0;
+#endif
 
 void setupHandler() {
 	temperatureNode.setProperty("unit").send("c");
@@ -68,19 +80,23 @@ void loopHandler() {
 #endif
 
 		/* only try to publish if everything seems right */
-		if (!isnan(t) && !isnan(h) && !isnan(p) && !isnan(v)) {
+		if (!isnan(t) && (t > TEMP_MIN) && (t < TEMP_MAX))
 			temperatureNode.setProperty("degrees").send(String(t));
+		if (!isnan(h) && (h > HUM_MIN) && (h < HUM_MAX))
 			humidityNode.setProperty("relative").send(String(h));
+		if (!isnan(p) && (p > PRESS_MIN) && (p < PRESS_MAX))
 			pressureNode.setProperty("pressure").send(String(p));
+		if (!isnan(v))
 			batteryNode.setProperty("battery").send(String(v));
 
 #ifdef BATTERY_MODE
-			published = 1;
-			Homie.prepareToSleep();
+		/* always sleep, even if readings were wrong and not sent */
+		published = 1;
+		Homie.prepareToSleep();
 #else
-			published = millis();
+		/* don't run without pause if values were wrong */
+		published = millis();
 #endif
-		}
 	}
 }
 
@@ -89,7 +105,8 @@ void onHomieEvent(const HomieEvent& event) {
 	switch(event.type) {
 		case HomieEventType::READY_TO_SLEEP:
 #ifdef DEBUG_MODE
-			Serial << "Ready to sleep" << endl;
+			Serial << "Ready to sleep ( " <<
+				(millis() - start) / 1000.0f << "s)" << endl;
 #endif
 			ESP.deepSleep(DEEPSLEEP_TIME);
 			break;
@@ -99,6 +116,7 @@ void onHomieEvent(const HomieEvent& event) {
 
 void setup() {
 #ifdef DEBUG_MODE
+	start = millis();
 	Serial.begin(115200);
 	Serial.println();
 	Serial.println();
