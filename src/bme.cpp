@@ -18,7 +18,7 @@
 #define PUB_INTERVAL 60
 #endif
 
-#define FW_VERSION	"0.1.1"
+#define FW_VERSION	"0.1.2"
 
 /* Magic sequence for Autodetectable Binary Upload */
 const char *__FLAGGED_FW_NAME = "\xbf\x84\xe4\x13\x54" FW_NAME "\x93\x44\x6b\xa7\x75";
@@ -26,10 +26,10 @@ const char *__FLAGGED_FW_VERSION = "\x6a\x3f\x3e\x0e\xe1" FW_VERSION "\xb0\x30\x
 /* End of magic sequence for Autodetectable Binary Upload */
 
 
-HomieNode temperatureNode("temperature", "temperature");
-HomieNode humidityNode("humidity", "humidity");
-HomieNode pressureNode("pressure", "pressure");
-HomieNode batteryNode("battery", "battery");
+HomieNode temperatureNode("temperature", "Temperature", "temperature");
+HomieNode humidityNode("humidity", "Humidity", "humidity");
+HomieNode pressureNode("pressure", "Pressure", "pressure");
+HomieNode batteryNode("battery", "Battery", "battery");
 
 BME280I2C bme;
 
@@ -55,9 +55,21 @@ void setupHandler() {
 	pressureNode.setProperty("unit").send("hPa");
 	batteryNode.setProperty("unit").send("V");
 
-	/* 4 and 5 are the gpio numbers */
-	if (!bme.begin(4,5))
+	while (!bme.begin()) {
 		Serial.println("Could not find BME280 sensor, check wiring!");
+    	delay(1000);
+	}
+
+  switch(bme.chipModel()) {
+     case BME280::ChipModel_BME280:
+       Serial.println("Found BME280 sensor! Success.");
+       break;
+     case BME280::ChipModel_BMP280:
+       Serial.println("Found BMP280 sensor! No Humidity available.");
+       break;
+     default:
+       Serial.println("Found UNKNOWN sensor! Error!");
+  }
 }
 
 void loopHandler() {
@@ -70,13 +82,13 @@ void loopHandler() {
 	{
 		float t, h, p, v;
 
-		bme.read(p, t, h, true, 1); /* true for metric, 1 for hPa */
+		bme.read(p, t, h, BME280::TempUnit_Celsius, BME280::PresUnit_hPa); // Temperature in Celsius, Pressure in hPa
 		p += PRESSURE_OFFSET;
 		v = ESP.getVcc() / 1000.0f;
 
 #ifdef DEBUG_MODE
-		Serial << "t = " << t << "°C p = " << p << "hPa / h = " << h
-			<< " % /  v = " << v  << "V" << endl;
+		Serial << "t = " << t << "°C | p = " << p << " bar | h = " << h
+			<< " % |  v = " << v  << "V" << endl;
 #endif
 
 		/* only try to publish if everything seems right */
@@ -125,7 +137,6 @@ void setup() {
 #endif
 
 	Homie_setFirmware(FW_NAME, FW_VERSION);
-
 	Homie.setSetupFunction(setupHandler);
 	Homie.setLoopFunction(loopHandler);
 	Homie.disableLedFeedback(); 

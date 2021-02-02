@@ -1,0 +1,15 @@
+{
+  "name": "BME380",
+  "wifi": {
+    "ssid": "MySSID",
+    "password": "My Password"
+  },
+  "mqtt": {
+    "host": "192.168.10.20",
+    "port": 1883,
+    "base_topic": "devices/"
+  },
+  "ota": {
+    "enabled": false
+  }
+}
