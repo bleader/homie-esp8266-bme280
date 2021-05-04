@@ -55,6 +55,8 @@ void setupHandler() {
 	pressureNode.setProperty("unit").send("hPa");
 	batteryNode.setProperty("unit").send("V");
 
+	Wire.begin();
+
 	while (!bme.begin()) {
 		Serial.println("Could not find BME280 sensor, check wiring!");
     	delay(1000);
