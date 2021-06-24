@@ -1,7 +1,8 @@
 #include <Wire.h>
 #include <Homie.h>
 #include <SPI.h>
-#include <BME280I2C.h>
+#include <Adafruit_BME280.h>
+#include <Adafruit_Sensor.h>
 // #include "LittleFS.h"
 
 /* comment this out to remove almost all prints
@@ -32,7 +33,7 @@ HomieNode humidityNode("humidity", "Humidity", "sensor");
 HomieNode pressureNode("pressure", "Pressure", "sensor");
 HomieNode batteryNode("battery", "Voltage", "sensor");
 
-BME280I2C bme;
+Adafruit_BME280 bme;
 
 /* checks and adjustements */
 #define PRESSURE_OFFSET 16
@@ -61,23 +62,14 @@ void setupHandler() {
 	pressureNode.advertise("pressure").setName("Pressure").setDatatype("float").setUnit("hPa");
 	batteryNode.advertise("voltage").setName("Voltage").setDatatype("float").setUnit("V");*/
 
-	Wire.begin();
-
-	while (!bme.begin()) {
+	boolean status;
+	status = bme.begin(0x76);
+	if (!status) {
 		Serial.println("Could not find BME280 sensor, check wiring!");
-    	delay(1000);
+		Serial.print("SensorID was: 0x"); 
+		Serial.println(bme.sensorID(),16);
+    	while (1) delay (10);
 	}
-
-    switch(bme.chipModel()) {
-        case BME280::ChipModel_BME280:
-            Serial.println("Found BME280 sensor! Success.");
-            break;
-        case BME280::ChipModel_BMP280:
-            Serial.println("Found BMP280 sensor! No Humidity available.");
-            break;
-        default:
-            Serial.println("ERROR, UNKNOWN sensor");
-    }
 }
 
 void loopHandler() {
@@ -89,7 +81,9 @@ void loopHandler() {
 #endif
 	{
 		float t, h, p, v;
-		bme.read(p, t, h, BME280::TempUnit_Celsius, BME280::PresUnit_hPa); // Temperature in Celsius, Pressure in hPa
+		t = bme.readTemperature();
+		h = bme.readHumidity();
+		p = bme.readPressure() / 100.0F;
 		p += PRESSURE_OFFSET;
 		v = ESP.getVcc() / 1000.0f;
 
