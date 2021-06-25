@@ -28,10 +28,11 @@ const char *__FLAGGED_FW_VERSION = "\x6a\x3f\x3e\x0e\xe1" FW_VERSION "\xb0\x30\x
 /* End of magic sequence for Autodetectable Binary Upload */
 
 
-HomieNode temperatureNode("temperature", "Temperature", "sensor");
+/*HomieNode temperatureNode("temperature", "Temperature", "sensor");
 HomieNode humidityNode("humidity", "Humidity", "sensor");
 HomieNode pressureNode("pressure", "Pressure", "sensor");
-HomieNode batteryNode("battery", "Voltage", "sensor");
+HomieNode batteryNode("battery", "Voltage", "sensor");*/
+HomieNode multisensor("multisensor", "Multi-Sensor", "thp");
 
 Adafruit_BME280 bme;
 
@@ -52,15 +53,10 @@ uint32_t start = 0;
 #endif
 
 void setupHandler() {
-	temperatureNode.setProperty("unit").send("C");
-	humidityNode.setProperty("unit").send("%");
-	pressureNode.setProperty("unit").send("hPa");
-	batteryNode.setProperty("unit").send("V");
-
-	/*temperatureNode.advertise("degrees").setName("Degrees").setDatatype("float").setUnit("°C");
-	humidityNode.advertise("relative").setName("Relative").setDatatype("float").setUnit("%");
-	pressureNode.advertise("pressure").setName("Pressure").setDatatype("float").setUnit("hPa");
-	batteryNode.advertise("voltage").setName("Voltage").setDatatype("float").setUnit("V");*/
+	multisensor.advertise("temperature").setName("Temperature").setDatatype("float").setUnit("°C");
+	multisensor.advertise("humidity").setName("Humidity").setDatatype("float").setUnit("%");
+	multisensor.advertise("pressure").setName("Pressure").setDatatype("float").setUnit("hPa");
+	multisensor.advertise("voltage").setName("VCC").setDatatype("float").setUnit("V");
 
 	boolean status;
 	status = bme.begin(0x76);
@@ -93,13 +89,13 @@ void loopHandler() {
 #endif
 		/* only try to publish if everything seems right */
 		if (!isnan(t) && (t > TEMP_MIN) && (t < TEMP_MAX))
-			temperatureNode.setProperty("value").send(String(t));
+			multisensor.setProperty("temperature").send(String(t));
 		if (!isnan(h) && (h > HUM_MIN) && (h < HUM_MAX))
-			humidityNode.setProperty("value").send(String(h));
+			multisensor.setProperty("humidity").send(String(h));
 		if (!isnan(p) && (p > PRESS_MIN) && (p < PRESS_MAX))
-			pressureNode.setProperty("value").send(String(p));
+			multisensor.setProperty("pressure").send(String(p));
 		if (!isnan(v))
-			batteryNode.setProperty("value").send(String(v));
+			multisensor.setProperty("voltage").send(String(v));
 
 #ifdef BATTERY_MODE
 		/* always sleep, even if readings were wrong and not sent */
