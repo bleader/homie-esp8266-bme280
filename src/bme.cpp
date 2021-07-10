@@ -1,24 +1,26 @@
 #include <Wire.h>
 #include <Homie.h>
 #include <SPI.h>
-#include <BME280I2C.h>
+#include <Adafruit_BME280.h>
+#include <Adafruit_Sensor.h>
+// #include "LittleFS.h"
 
 /* comment this out to remove almost all prints
  * this saves an average of 80ms on a roughly 4s uptime between deep sleeps */
 #define DEBUG_MODE 1
 
 /* uncomment to activate battery operated mode, a.k.a deep sleep mode */
-#define BATTERY_MODE 1
+// #define BATTERY_MODE 1
 
 #ifdef BATTERY_MODE
-#define FW_NAME "raton-bme-battery"
+#define FW_NAME "jjj-bme-battery"
 #define DEEPSLEEP_TIME (10 * 60 * 1000000) /* 10 minutes */
 #else
-#define FW_NAME "raton-bme"
+#define FW_NAME "jjj-bme"
 #define PUB_INTERVAL 60
 #endif
 
-#define FW_VERSION	"0.1.1"
+#define FW_VERSION	"0.0.2"
 
 /* Magic sequence for Autodetectable Binary Upload */
 const char *__FLAGGED_FW_NAME = "\xbf\x84\xe4\x13\x54" FW_NAME "\x93\x44\x6b\xa7\x75";
@@ -26,12 +28,13 @@ const char *__FLAGGED_FW_VERSION = "\x6a\x3f\x3e\x0e\xe1" FW_VERSION "\xb0\x30\x
 /* End of magic sequence for Autodetectable Binary Upload */
 
 
-HomieNode temperatureNode("temperature", "temperature");
-HomieNode humidityNode("humidity", "humidity");
-HomieNode pressureNode("pressure", "pressure");
-HomieNode batteryNode("battery", "battery");
+/*HomieNode temperatureNode("temperature", "Temperature", "sensor");
+HomieNode humidityNode("humidity", "Humidity", "sensor");
+HomieNode pressureNode("pressure", "Pressure", "sensor");
+HomieNode batteryNode("battery", "Voltage", "sensor");*/
+HomieNode multisensor("multisensor", "Multi-Sensor", "thp");
 
-BME280I2C bme;
+Adafruit_BME280 bme;
 
 /* checks and adjustements */
 #define PRESSURE_OFFSET 16
@@ -50,14 +53,19 @@ uint32_t start = 0;
 #endif
 
 void setupHandler() {
-	temperatureNode.setProperty("unit").send("c");
-	humidityNode.setProperty("unit").send("%");
-	pressureNode.setProperty("unit").send("hPa");
-	batteryNode.setProperty("unit").send("V");
+	multisensor.advertise("temperature").setName("Temperature").setDatatype("float").setUnit("°C");
+	multisensor.advertise("humidity").setName("Humidity").setDatatype("float").setUnit("%");
+	multisensor.advertise("pressure").setName("Pressure").setDatatype("float").setUnit("hPa");
+	multisensor.advertise("voltage").setName("VCC").setDatatype("float").setUnit("V");
 
-	/* 4 and 5 are the gpio numbers */
-	if (!bme.begin(4,5))
+	boolean status;
+	status = bme.begin(0x76);
+	if (!status) {
 		Serial.println("Could not find BME280 sensor, check wiring!");
+		Serial.print("SensorID was: 0x"); 
+		Serial.println(bme.sensorID(),16);
+    	while (1) delay (10);
+	}
 }
 
 void loopHandler() {
@@ -69,25 +77,25 @@ void loopHandler() {
 #endif
 	{
 		float t, h, p, v;
-
-		bme.read(p, t, h, true, 1); /* true for metric, 1 for hPa */
+		t = bme.readTemperature();
+		h = bme.readHumidity();
+		p = bme.readPressure() / 100.0F;
 		p += PRESSURE_OFFSET;
 		v = ESP.getVcc() / 1000.0f;
 
 #ifdef DEBUG_MODE
-		Serial << "t = " << t << "°C p = " << p << "hPa / h = " << h
-			<< " % /  v = " << v  << "V" << endl;
+		Homie.getLogger() << "t = " << t << "°C | p = " << p << " hPa | h = " << h
+			<< " % |  v = " << v  << "V" << endl;
 #endif
-
 		/* only try to publish if everything seems right */
 		if (!isnan(t) && (t > TEMP_MIN) && (t < TEMP_MAX))
-			temperatureNode.setProperty("degrees").send(String(t));
+			multisensor.setProperty("temperature").send(String(t));
 		if (!isnan(h) && (h > HUM_MIN) && (h < HUM_MAX))
-			humidityNode.setProperty("relative").send(String(h));
+			multisensor.setProperty("humidity").send(String(h));
 		if (!isnan(p) && (p > PRESS_MIN) && (p < PRESS_MAX))
-			pressureNode.setProperty("pressure").send(String(p));
+			multisensor.setProperty("pressure").send(String(p));
 		if (!isnan(v))
-			batteryNode.setProperty("battery").send(String(v));
+			multisensor.setProperty("voltage").send(String(v));
 
 #ifdef BATTERY_MODE
 		/* always sleep, even if readings were wrong and not sent */
@@ -118,6 +126,7 @@ void setup() {
 #ifdef DEBUG_MODE
 	start = millis();
 	Serial.begin(115200);
+	while (!Serial) {} // Wait
 	Serial.println();
 	Serial.println();
 #else
@@ -125,12 +134,11 @@ void setup() {
 #endif
 
 	Homie_setFirmware(FW_NAME, FW_VERSION);
-
 	Homie.setSetupFunction(setupHandler);
 	Homie.setLoopFunction(loopHandler);
-	Homie.disableLedFeedback(); 
 
 #ifdef BATTERY_MODE
+	Homie.disableLedFeedback(); 
 	Homie.onEvent(onHomieEvent);
 #endif
 
